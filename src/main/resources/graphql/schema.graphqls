@@ -1,0 +1,39 @@
+enum JoinType {
+    INNER,
+    LEFT,
+    RIGHT
+}
+
+directive @join(joinType: JoinType!) on FIELD_DEFINITION
+directive @embedded on FIELD_DEFINITION
+
+schema {
+    query: Query
+}
+type Query {
+    employees(search: String = ""): [Employee],
+    employee(id: Int): Employee
+}
+type Employee {
+    id: Int,
+    identity: Identity,
+    @embedded
+    name: String
+    salary: Salary
+    @join(joinType: INNER)
+}
+type Salary {
+    id: Int,
+    amount: Int,
+    identity: Identity,
+    @embedded
+    bank: Bank
+    @join(joinType: LEFT)
+}
+type Identity{
+    personalId: String
+}
+type Bank{
+    id: Int,
+    name: String
+}

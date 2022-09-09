@@ -1,0 +1,22 @@
+server:
+  port: ${SERVER_PORT:8093}
+  forward-headers-strategy: framework
+  error:
+    include-message: always
+
+spring:
+  application:
+    name: demo
+  datasource:
+    #codegen:merge
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/employee?autoReconnect=true&useSSL=false&rewriteBatchedStatements=true&serverTimezone=UTC&createDatabaseIfNotExist=true
+    username: ${DB_USER:root}
+    password: ${DB_PASS:Qw123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    type: com.zaxxer.hikari.HikariDataSource
+  jpa:
+    open-in-view: false
+    database: MYSQL
+    hibernate:
+      ddl-auto: update
+    show-sql: true
