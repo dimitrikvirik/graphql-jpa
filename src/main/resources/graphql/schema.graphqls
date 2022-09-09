@@ -16,6 +16,7 @@ type Query {
 }
 type Employee {
     id: Int,
+    contacts: [String]
     identity: Identity,
     @embedded
     name: String
@@ -25,6 +26,7 @@ type Employee {
 type Salary {
     id: Int,
     amount: Int,
+    currencies: [String]
     identity: Identity,
     @embedded
     bank: Bank
@@ -34,6 +36,12 @@ type Identity{
     personalId: String
 }
 type Bank{
+    id: Int,
+    name: String,
+    countries: [Country]
+    @join(joinType: LEFT)
+}
+type Country {
     id: Int,
     name: String
 }

@@ -9,14 +9,17 @@ data class Employee(
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    var id: Int,
+    var id: Int?,
 
-    var name: String,
+    var name: String?,
+
+    @ElementCollection
+    var contacts: List<String>,
 
     @Embedded
-    var identity: Identity,
+    var identity: Identity?,
 
     @OneToOne
     @Cascade(CascadeType.ALL)
-    var salary: Salary
+    var salary: Salary?
 )

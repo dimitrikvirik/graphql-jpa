@@ -6,8 +6,9 @@ plugins {
     kotlin("jvm") version "1.7.10"
     kotlin("plugin.spring") version "1.7.10"
     kotlin("plugin.jpa") version "1.7.10"
-    kotlin("kapt") version "1.7.10"
+
 }
+
 
 group = "com.example"
 version = "0.0.1-SNAPSHOT"
@@ -32,7 +33,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-web")
     testImplementation("org.springframework.graphql:spring-graphql-test")
     implementation("com.querydsl:querydsl-jpa:5.0.0")
-    kapt("com.querydsl:querydsl-apt:5.0.0:jpa")
+
 }
 
 tasks.withType<KotlinCompile> {

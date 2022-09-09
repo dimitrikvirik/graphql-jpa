@@ -8,17 +8,17 @@ import javax.persistence.*
 data class Salary(
     @Id
     @GeneratedValue( strategy = GenerationType.IDENTITY)
-    val id: Int,
+    val id: Int?,
 
-    var amount: Int,
+    var amount: Int?,
 
     @Embedded
-    val identity: Identity,
+    val identity: Identity?,
 
     @ElementCollection
-    var currencies: List<String>,
+    var currencies: List<String>?,
 
     @ManyToOne
     @Cascade(CascadeType.ALL)
-    var bank: Bank
-)
+    var bank: Bank?
+){}

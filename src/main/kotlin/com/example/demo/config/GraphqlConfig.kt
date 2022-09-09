@@ -5,6 +5,7 @@ import com.github.ichanzhar.rsql.JpaRsqlVisitor
 import com.github.ichanzhar.rsql.utils.RsqlParserFactory
 import com.github.wnameless.json.unflattener.JsonUnflattener
 import graphql.language.EnumValue
+import graphql.language.ListType
 import graphql.schema.DataFetchingEnvironment
 import graphql.schema.DataFetchingFieldSelectionSet
 import graphql.schema.SelectedField
@@ -22,8 +23,8 @@ data class GraphQlProperty(
     var alias: String = "",
     val parent: GraphQlProperty? = null,
     val isEmbedded: Boolean,
+    val isList: Boolean,
     val joinType: JoinType? = null,
-    var join: Join<*, *>? = null,
     var path: Path<*>? = null,
 )
 
@@ -52,7 +53,6 @@ class GraphqlConfig {
         val qlProperties =
             env.selectionSet.asProperty()
         val entityManager = emf.createEntityManager()
-
         val cb = entityManager.criteriaBuilder
         val cq = cb.createTupleQuery()
         val rt = cq.from(entity) as Root<Any>
@@ -61,42 +61,78 @@ class GraphqlConfig {
         for (i in qlProperties.indices) {
             val property = qlProperties[i]
             if (property.joinType != null) {
+
                 val join =
                     ((property.parent?.path ?: rt) as From<*, *>).join<Any, Any>(property.name, property.joinType)
                 property.path = join
+
             } else if (property.isEmbedded) {
                 val parent = if (property.parent != null) {
-                    property.parent.path ?: property.parent.join!!
+                    property.parent.path!!
                 } else {
                     rt
                 }
                 property.path = parent.get<Any>(property.name)
 
             } else {
-                selections.add((property.parent?.path ?: rt).get<Any>(property.name).alias(property.alias))
+                val path = property.parent?.path ?: rt
+                if (property.isList) {
+                    val joinList = (getFirstJoin(property) ?: rt).joinList<Any, Any>(property.name, JoinType.LEFT)
+                        .alias(property.alias.replace(".", "_") + "_LIST")
+                    selections.add(joinList)
+                } else {
+                    selections.add(path.get<Any>(property.name).alias(property.alias))
+                }
             }
         }
 
 
-        val node = RsqlParserFactory.instance().parse(search)
-        val spec: Specification<Any> = node.accept(JpaRsqlVisitor())
+        val query = if (search.isNotBlank()) {
+            val node = RsqlParserFactory.instance().parse(search)
+            val spec: Specification<Any> = node.accept(JpaRsqlVisitor())
+            cq.where(spec.toPredicate(rt, cq, cb))
+        } else cq
+
+        selections.add(rt.get<Any>("id").alias("id"))
 
 
-        val query = cq.where(spec.toPredicate(rt, cq, cb)).multiselect(
-            selections as List<Selection<*>>?
+        query.multiselect(
+            selections as List<Selection<Any>>
         )
+
         val resultList = entityManager.createQuery(query).resultList
 
+        //TODO list join and list collection
         val result = resultList.map { tuple ->
-            val map = tuple.elements.mapIndexed { index, tupleElement ->
-                val alias = tupleElement.alias
+            tuple.elements.mapIndexed { index, tupleElement ->
+                val alias = tupleElement.alias.replace("_", ".")
                 alias to tuple[index]
             }.toMap()
+        }
+        // result.groupBy { it.entries.first { e -> e.key == "id" } }.
+        val finalResult = result.groupBy { it.entries.first { e -> e.key == "id" } }.values.map { list ->
+            list.flatMap { it.entries }.filter { it.key.contains("LIST") }.groupBy { it.key }.map {
+                it.key.replace(".LIST", "") to it.value.map { v -> v.value }.distinct()
+            }.toMap() + list.flatMap { it.entries }.filter { !it.key.contains("LIST") }.distinctBy { it.key }
+                .associate {
+                    it.key to it.value
+                }
+        }.map { map ->
             JsonUnflattener.unflattenAsMap(map)
         }
 
+        return finalResult.toMutableList()
+    }
 
-        return result.toMutableList()
+
+    fun getFirstJoin(property: GraphQlProperty): Join<*, *>? {
+        return if (property.parent?.joinType != null) {
+            property.parent.path as Join<*, *>
+        } else if (property.parent == null) {
+            null
+        } else {
+            getFirstJoin(property.parent)
+        }
     }
 
 
@@ -129,6 +165,7 @@ fun DataFetchingFieldSelectionSet.asProperty(): List<GraphQlProperty> {
             name = field.name,
             alias = field.asAlias(),
             joinType = joinType,
+            isList = (field.fieldDefinitions[0].definition?.type is ListType),
             parent = list.firstOrNull { p -> p.alias == field.parentField.asAlias() },
             isEmbedded = isEmbedded
         )
